@@ -1,0 +1,160 @@
+{{ header }}{{ column_left }}
+<div id="content">
+  <div class="page-header">
+    <div class="container-fluid">
+      <div class="float-end">
+        <button type="submit" form="form-payment" data-bs-toggle="tooltip" title="{{ button_save }}" class="btn btn-primary"><i class="fa-solid fa-save"></i></button>
+        <a href="{{ cancel }}" data-bs-toggle="tooltip" title="{{ button_back }}" class="btn btn-light"><i class="fa-solid fa-reply"></i></a></div>
+      <h1>{{ heading_title }}</h1>
+      <ol class="breadcrumb">
+        {% for breadcrumb in breadcrumbs %}
+          <li class="breadcrumb-item"><a href="{{ breadcrumb.href }}">{{ breadcrumb.text }}</a></li>
+        {% endfor %}
+      </ol>
+    </div>
+  </div>
+  <div class="container-fluid">
+    {% if error_warning %}
+    <div class="alert alert-danger alert-dismissible"><i class="fa fa-exclamation-circle"></i> {{ error_warning }}
+      <button type="button" class="close" data-dismiss="alert">&times;</button>
+    </div>
+    {% endif %}
+    {% if success %}
+    <div class="alert alert-success alert-dismissible"><i class="fa-solid fa-circle-check"></i> {{ success }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>    
+    {% endif %}
+    <div class="card">
+      <div class="card-header"><i class="fa-solid fa-pencil"></i> {{ text_edit }}</div>
+      <div class="card-body">
+        <form id="form-payment" action="{{ action }}" method="post">
+          <div class="row mb-3 required">
+            <label class="col-sm-2 col-form-label" for="input-api_key">{{ entry_api_key }}</label>
+            <div class="col-sm-10">
+              <input type="text" name="payment_hitpay_api_key" value="{{ payment_hitpay_api_key }}" placeholder="{{ entry_api_key }}" id="input-api_key" class="form-control" />
+              {% if error_api_key %}
+              <div class="text-danger">{{ error_api_key }}</div>
+              {% endif %}
+            </div>
+          </div>
+          <div class="row mb-3 required">
+            <label class="col-sm-2 col-form-label" for="input-signature">{{ entry_signature }}</label>
+            <div class="col-sm-10">
+              <input type="text" name="payment_hitpay_signature" value="{{ payment_hitpay_signature }}" placeholder="{{ entry_signature }}" id="input-signature" class="form-control" />
+              {% if error_signature %}
+              <div class="text-danger">{{ error_signature }}</div>
+              {% endif %}
+            </div>
+          </div>
+          <div class="row mb-3">
+            <label class="col-sm-2 col-form-label" for="input-mode">{{ entry_mode }}</label>
+            <div class="col-sm-10">
+              <select name="payment_hitpay_mode" id="input-mode" class="form-select">
+                {% if payment_hitpay_mode == 'live' %}
+                <option value="live" selected="selected">{{ text_live }}</option>
+                {% else %}
+                <option value="live">{{ text_live }}</option>
+                {% endif %}
+                {% if payment_hitpay_mode == 'sandbox' %}
+                <option value="sandbox" selected="selected">{{ text_sandbox }}</option>
+                {% else %}
+                <option value="sandbox">{{ text_sandbox }}</option>
+                {% endif %}>
+              </select>
+            </div>
+          </div>
+          <!--div class="row mb-3">
+            <label class="col-sm-2 col-form-label" for="input-total"><span data-toggle="tooltip" title="{{ help_total }}">{{ entry_total }}</span></label>
+            <div class="col-sm-10">
+              <input type="text" name="payment_hitpay_total" value="{{ payment_hitpay_total }}" placeholder="{{ entry_total }}" id="input-total" class="form-control" />
+            </div>
+          </div-->
+          <div class="row mb-3">
+            <label class="col-sm-2 col-form-label" for="input-title"><span data-toggle="tooltip" title="{{ help_title }}">{{ entry_title }}</span></label>
+            <div class="col-sm-10">
+              <input type="text" name="payment_hitpay_title" value="{{ payment_hitpay_title }}" placeholder="{{ entry_title_placeholder }}" id="input-title" class="form-control" />
+            </div>
+          </div>
+          <!--div class="row mb-3">
+            <label class="col-sm-2 col-form-label" for="input-hitpay_logo">Payment Logos</label>
+            <div class="col-sm-10">
+              <select name="payment_hitpay_logo[]" id="input-hitpay_logo" class="form-select" multiple="true" rows="10">
+                {% for payment_logo in payment_logos %}
+                {% if payment_logo.value in payment_hitpay_logo %}
+                <option value="{{ payment_logo.value }}" selected="selected">{{ payment_logo.label }}</option>
+                {% else %}
+                <option value="{{ payment_logo.value }}">{{ payment_logo.label }}</option>
+                {% endif %}
+                {% endfor %}
+              </select>
+            </div>
+          </div-->
+          <div class="row mb-3">
+            <label class="col-sm-2 col-form-label" for="input-order-status">{{ entry_order_status }}</label>
+            <div class="col-sm-10">
+              <select name="payment_hitpay_order_status_id" id="input-order-status" class="form-select">
+                {% for order_status in order_statuses %}
+                {% if order_status.order_status_id == payment_hitpay_order_status_id %}
+                <option value="{{ order_status.order_status_id }}" selected="selected">{{ order_status.name }}</option>
+                {% else %}
+                <option value="{{ order_status.order_status_id }}">{{ order_status.name }}</option>
+                {% endif %}
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="row mb-3">
+            <label class="col-sm-2 col-form-label" for="input-geo-zone">{{ entry_geo_zone }}</label>
+            <div class="col-sm-10">
+              <select name="payment_hitpay_geo_zone_id" id="input-geo-zone" class="form-select">
+                <option value="0">{{ text_all_zones }}</option>
+                {% for geo_zone in geo_zones %}
+                {% if geo_zone.geo_zone_id == payment_hitpay_geo_zone_id %}
+                <option value="{{ geo_zone.geo_zone_id }}" selected="selected">{{ geo_zone.name }}</option>
+                {% else %}
+                <option value="{{ geo_zone.geo_zone_id }}">{{ geo_zone.name }}</option>
+                {% endif %}
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="row mb-3">
+            <label class="col-sm-2 col-form-label" for="input-status">{{ entry_status }}</label>
+            <div class="col-sm-10">
+              <select name="payment_hitpay_status" id="input-status" class="form-select">
+                {% if payment_hitpay_status %}
+                <option value="1" selected="selected">{{ text_enabled }}</option>
+                <option value="0">{{ text_disabled }}</option>
+                {% else %}
+                <option value="1">{{ text_enabled }}</option>
+                <option value="0" selected="selected">{{ text_disabled }}</option>
+                {% endif %}
+              </select>
+            </div>
+          </div>
+          <div class="row mb-3">
+            <label class="col-sm-2 col-form-label" for="input-logging">{{ entry_logging }}</label>
+            <div class="col-sm-10">
+              <select name="payment_hitpay_logging" id="input-logging" class="form-select">
+                {% if payment_hitpay_logging %}
+                <option value="1" selected="selected">{{ text_enabled }}</option>
+                <option value="0">{{ text_disabled }}</option>
+                {% else %}
+                <option value="1">{{ text_enabled }}</option>
+                <option value="0" selected="selected">{{ text_disabled }}</option>
+                {% endif %}
+              </select>
+            </div>
+          </div>
+          <div class="row mb-3">
+            <label class="col-sm-2 col-form-label" for="input-sort-order">{{ entry_sort_order }}</label>
+            <div class="col-sm-10">
+              <input type="text" name="payment_hitpay_sort_order" value="{{ payment_hitpay_sort_order }}" placeholder="{{ entry_sort_order }}" id="input-sort-order" class="form-control" />
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{{ footer }}
