@@ -81,5 +81,14 @@
 
 ## Changelog
 
+= 1.2.0 =
+* Aug 14, 2024
+* Upgraded to support 4.0.2.0, 4.0.2.1, 4.0.2.2, and 4.0.2.3
+* Drop-In (Popup) feature is included
+* Fixed Hitpay Fee Currency issue
+* Fixed Refund amount check issue
+* Fixed Refunded amount conversion display issue
+* Extension tested on latest OpenCart 4.0.2.3
+
 = 1.0.0 =
 * Initial release.

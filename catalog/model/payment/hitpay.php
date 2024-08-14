@@ -38,6 +38,78 @@ class Hitpay extends \Opencart\System\Engine\Model {
 		return $method_data;
 	}
         
+        /**
+        * Payment Module method handler
+        *
+        * @param object $address
+        * 
+        * return array
+        */
+       public function getMethods(array $address = [])
+       {
+            $this->load->language('extension/hitpay/payment/hitpay');
+            
+            $geo_check = false;
+            
+            if ($this->config->get('payment_hitpay_geo_zone_id')) {
+                $geo_check = true;
+            }
+            
+            if ($geo_check && isset($address['country_id'])) {
+                $geo_check = true;
+            } else {
+                $geo_check = false;
+            }
+            
+            if ($geo_check && isset($address['zone_id'])) {
+                $geo_check = true;
+            } else {
+                $geo_check = false;
+            }
+
+            $status = $this->config->get('payment_hitpay_status');
+            if ($status) {
+                if (!$geo_check) {
+                    $status = true;
+                } else {
+                    $query = $this->db->query("SELECT * FROM " . DB_PREFIX . "zone_to_geo_zone WHERE geo_zone_id = '" . (int)$this->config->get('payment_hitpay_geo_zone_id') . "' AND country_id = '" . (int)$address['country_id'] . "' AND (zone_id = '" . (int)$address['zone_id'] . "' OR zone_id = '0')");
+                    if ($query->num_rows) {
+                        $status = true;
+                    } else {
+                        $status = false;
+                    }
+                }
+            }
+
+            $method_data = [];
+
+            $title = $this->config->get('payment_hitpay_title');
+            $title = trim($title);
+            if (empty($title)) {
+                $title = $this->language->get('text_title');
+            }
+
+           if ($status) {
+                $code = 'hitpay';
+                $option_code = 'hitpay.hitpay';
+
+                $sort_order = $this->config->get('payment_hitpay_sort_order');
+                $option_data['hitpay'] = [
+                    'code' => $option_code,
+                    'name' => $title
+                ];
+
+               $method_data = [
+                   'code'       => $code,
+                   'name'       => $title,
+                   'option'     => $option_data,
+                   'sort_order' => $sort_order
+               ];
+           }
+
+           return $method_data;
+       }
+        
         public function displayLogos($title, $logos)
         {
             $customizedTitle = $title; 
@@ -96,5 +168,25 @@ class Hitpay extends \Opencart\System\Engine\Model {
         public function updateOrderData($order_id, $param, $value)
         {
             $this->db->query("UPDATE " . DB_PREFIX . "order SET {$param} = '" . $this->db->escape($value) . "' WHERE order_id = '" . (int)$order_id . "'");
+        }
+        
+        public function isVersion402()
+        {
+            $status = true;
+
+            if (VERSION == '4.0.0.0' || VERSION == '4.0.1.0' || VERSION == '4.0.1.1') {
+                $status = false;
+            }
+
+            return $status;
+        }
+
+        public function getCompatibleRoute($route, $method)
+        {
+            if ($this->isVersion402()) {
+                return $route.'.'.$method;
+            } else {
+                return $route.'|'.$method;
+            }
         }
 }

@@ -9,6 +9,7 @@ require_once DIR_EXTENSION.'hitpay/system/library/hitpay-php-sdk/Response/Refund
 
 class Hitpay extends \Opencart\System\Engine\Controller {
     private $error = array();
+    private $payment;
 
     public function index() {
         $this->load->language('extension/hitpay/payment/hitpay');
@@ -16,6 +17,16 @@ class Hitpay extends \Opencart\System\Engine\Controller {
         $this->document->setTitle($this->language->get('heading_title'));
 
         $this->load->model('setting/setting');
+        
+        $current_version = $this->getCurrentVersion();
+        $version = $this->getVersion();
+        if ($current_version != $version) {
+            $data['upgrade_required'] = true;
+            $upgrade_version = 'upgrade_'.$this->getVersionNumber($current_version).'_'.$this->getVersionNumber($version);
+            $data['upgrade_link'] = $this->url->link('extension/payment/hitpay/'.$upgrade_version, 'user_token=' . $this->session->data['user_token'], true);
+        } else {
+            $data['upgrade_required'] = false;
+        }
 
         if (($this->request->server['REQUEST_METHOD'] == 'POST') && $this->validate()) {
             $this->model_setting_setting->editSetting('payment_hitpay', $this->request->post);
@@ -109,6 +120,12 @@ class Hitpay extends \Opencart\System\Engine\Controller {
             $data['payment_hitpay_title'] = $this->request->post['payment_hitpay_title'];
         } else {
             $data['payment_hitpay_title'] = $this->config->get('payment_hitpay_title');
+        }
+        
+        if (isset($this->request->post['payment_hitpay_checkout_mode'])) {
+            $data['payment_hitpay_checkout_mode'] = $this->request->post['payment_hitpay_checkout_mode'];
+        } else {
+            $data['payment_hitpay_checkout_mode'] = $this->config->get('payment_hitpay_checkout_mode');
         }
 
         /*$data['payment_logos'] = $this->get_payment_logos();
@@ -261,33 +278,63 @@ class Hitpay extends \Opencart\System\Engine\Controller {
         
     public function order_info(&$route, &$data, &$output) {
         $order_id = $this->request->get['order_id'];
-        $this->load->model('extension/hitpay/payment/hitpay');
-        $order = $this->model_extension_hitpay_payment_hitpay->getOrder($order_id);
         
+        $this->load->model('sale/order');
+        $this->load->language('extension/hitpay/payment/hitpay');
+        $this->load->model('extension/hitpay/payment/hitpay');
+        
+        $this->payment = $this->model_extension_hitpay_payment_hitpay;
+        
+        $is_hitpay_order = false;
+        $tab_key = -1;
+        if ($this->payment->isVersion402()) {
+            $data['tabs'][] = array('code' => 'hitpay', 'content' => '', 'title' => $this->language->get('heading_title'));
+        }
+
         if (isset($data['tabs'])) {
             foreach ($data['tabs'] as $key => $tabCol) {
                 if ($tabCol['code'] == 'hitpay') {
-                    unset($data['tabs'][$key]);
+                    if ($order_id > 0) {
+                        $order_info = $this->model_sale_order->getOrder($order_id);
+                        if ($order_info && isset($order_info['order_status_id'])) {
+                            $current_order_status_id = $order_info['order_status_id'];
+
+                            $allowed_order_statuses = [];
+                            $order_statuses = $this->getNewOrderStatuses($this->model_localisation_order_status->getOrderStatuses());
+                            foreach ($order_statuses as $status) {
+                                $allowed_order_statuses[] = $status['order_status_id'];
+                            }
+
+                            if (in_array($current_order_status_id, $allowed_order_statuses)){
+                                $tab_key = $key;
+                                $is_hitpay_order = true;
+                                break;
+                            } else {
+                                unset($data['tabs'][$key]);
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        if ($order) {
-            $metaData = $order['response'];
-            if (!empty($metaData)) {
+        if ($order_id > 0 && $is_hitpay_order) {
+            $order = $this->payment->getOrder($order_id);
+ 
+            if ($order && isset($order['response']) && ($metaData = $order['response']) && !empty($metaData)) {
                 $metaData = json_decode($metaData, true);
 
                 if(isset($metaData['payment_id']) && !empty($metaData['payment_id'])) {
-                    $this->load->model('sale/order');
-                    $order_info = $this->model_sale_order->getOrder($order_id);
                     $params = $metaData;
                     
                     /* The below block to add hitpay refund tab to the order page */
                     $tab['title'] = 'HitPay Refund';
                     $tab['code'] = 'hitpay_refund';
                     if(isset($metaData['is_refunded']) && $metaData['is_refunded'] == 1) {
-                        $params['amount_refunded'] = $this->currency->format($metaData['refundData']['amount_refunded'], $order_info['currency_code'], $order_info['currency_value']);
-                        $params['total_amount'] = $this->currency->format($metaData['refundData']['total_amount'], $order_info['currency_code'], $order_info['currency_value']);
+                        /*$params['amount_refunded'] = $this->currency->format($metaData['refundData']['amount_refunded'], $order_info['currency_code'], $order_info['currency_value']);
+                        $params['total_amount'] = $this->currency->format($metaData['refundData']['total_amount'], $order_info['currency_code'], $order_info['currency_value']);*/
+                        $params['amount_refunded'] = $this->currency->format($metaData['refundData']['amount_refunded'], $order_info['currency_code'], 1);
+                        $params['total_amount'] = $this->currency->format($metaData['refundData']['total_amount'], $order_info['currency_code'], 1);
                     } else {
                         $params['is_refunded'] = 0;
                         $params['amount'] = $this->currency->format($order_info['total'], $order_info['currency_code'], $order_info['currency_value']);
@@ -295,20 +342,24 @@ class Hitpay extends \Opencart\System\Engine\Controller {
 
                     $params['user_token'] = $this->session->data['user_token'];
                     $params['order_id'] = $order_id;
+                    
+                    $refundUrl = $this->payment->getCompatibleRoute('extension/hitpay/payment/hitpay','refund');
+                    $params['refund_action'] = $refundUrl;
 
                     $content = $this->load->view('extension/hitpay/payment/hitpay_refund', $params);
-
-                    $tab['content'] = $content;
-                    $data['tabs'][] = $tab;
+                    
+                    $data['tabs'][$tab_key]['content'] .= $content;
                     
                     /* The below block to display hitpay payment details to order totals */
                     $payment_method = '';
                     $fees = '';
+                    $fees_currency = '';
                     $payment_request_id = $metaData['payment_request_id'];
                     if (!empty($payment_request_id)) {
                         $payment_method = isset($metaData['payment_type']) ? $metaData['payment_type'] : '';
                         $fees = isset($metaData['fees']) ? $metaData['fees'] : '';
-                        if (empty($payment_method) || empty($fees)) {
+                        $fees_currency = isset($metaData['fees_currency']) ? $metaData['fees_currency'] : '';
+                        if (empty($payment_method) || empty($fees) || empty($fees_currency)) {
                             
                             try {
                                 if ($this->config->get('payment_hitpay_mode') == 'live') {
@@ -324,8 +375,10 @@ class Hitpay extends \Opencart\System\Engine\Controller {
                                         $payment = $payments[0];
                                         $payment_method = $payment->payment_type;
                                         $fees = $payment->fees;
+                                        $fees_currency = $payment->fees_currency;
                                         $this->model_extension_hitpay_payment_hitpay->updatePaymentData($order_id, 'payment_type', $payment_method);
                                         $this->model_extension_hitpay_payment_hitpay->updatePaymentData($order_id, 'fees', $fees);
+                                        $this->model_extension_hitpay_payment_hitpay->updatePaymentData($order_id, 'fees_currency', $fees_currency);
                                     }
                                 }
                             } catch (\Exception $e) {
@@ -335,7 +388,7 @@ class Hitpay extends \Opencart\System\Engine\Controller {
                         
                         if (!empty($payment_method)) {
                             $data['order_totals'][] = array('title' => 'HitPay Payment Type', 'text' => ucwords(str_replace("_", " ", $payment_method)));
-                            $data['order_totals'][] = array('title' => 'HitPay Fee', 'text' => $this->currency->format($fees, $order_info['currency_code'], $order_info['currency_value']));
+                            $data['order_totals'][] = array('title' => 'HitPay Fee', 'text' => $fees .' '.strtoupper($fees_currency));
                         }
                     }
                 }
@@ -370,6 +423,7 @@ class Hitpay extends \Opencart\System\Engine\Controller {
             $order_info = $this->model_sale_order->getOrder($order_id);
 
             $order_total_paid = $order_info['total'];
+            $order_total_paid = (float)$this->currency->format($order_info['total'], $order_info['currency_code'], $order_info['currency_value'], false);
             $amount = $hitpay_amount;
 
             if ($amount <= 0) {
@@ -420,5 +474,39 @@ class Hitpay extends \Opencart\System\Engine\Controller {
 
         echo json_encode($response);
         exit;
+    }
+    
+    public function upgrade_100_120() {
+        $current_version = $this->getCurrentVersion();
+        $version = $this->getVersion();
+        if ($current_version == $version) {
+            echo 'Already upgraded to => '.$current_version;
+        } else {
+            $this->load->model('extension/hitpay/payment/hitpay');
+            $this->model_extension_hitpay_payment_hitpay->upgrade_100_120();
+            echo 'Upgraded Successfully.';
+        }
+        die;
+    }
+    
+    public function getVersion()
+    {
+        $this->load->model('extension/hitpay/payment/hitpay');
+        return $this->model_extension_hitpay_payment_hitpay->getVersion();
+    }
+    
+    public function getCurrentVersion()
+    {
+        $this->load->model('extension/hitpay/payment/hitpay');
+        $current_version = $this->model_extension_hitpay_payment_hitpay->getSettingValue('payment_hitpay_current_version');
+        if (!$current_version || empty($current_version)) {
+            $current_version = '1.2.0';
+        }
+        return $current_version;
+    }
+    
+    public function getVersionNumber($version)
+    {
+        return str_replace('.', '', $version);
     }
 }

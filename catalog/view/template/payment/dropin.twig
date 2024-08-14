@@ -1,0 +1,76 @@
+<fieldset>
+    <div class="d-inline-block pt-2 pd-2 w-100 text-end">
+        <button type="button" id="button-confirm" class="btn btn-primary">{{ button_confirm }}</button>
+    </div>
+</fieldset>
+<script type="text/javascript"><!--
+    var hitpayRedirectUrl = '';
+    var hitpayPaymentId = '';
+    
+    $('#button-confirm').on('click', function() {
+        var element = this;
+        var isValid = true;
+        var hitpayConfirmUrl = '{{ action }}';
+
+        if (isValid) {
+            $.ajax({
+                url: hitpayConfirmUrl,
+                type: 'post',
+                dataType: 'json',
+                cache: false,
+                data:'drop_in_ajax=1',
+                beforeSend: function() {
+                    $(element).prop('disabled', true).addClass('loading');
+                },
+                complete: function() {
+                    $(element).prop('disabled', false).removeClass('loading');
+                },
+                success: function(json) {
+                    if (json['error']) {
+                        $('#alert').prepend('<div class="alert alert-danger alert-dismissible"><i class="fa-solid fa-circle-exclamation"></i> ' + json['error'] + ' <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
+                    } else if (json['payment_url']) {
+                        if (!window.HitPay.inited) {
+                            window.HitPay.init(json['payment_url'], {
+                              domain: json['domain'],
+                              apiDomain: json['apiDomain'],
+                            },
+                            {
+                              onClose: onHitpayDropInClose,
+                              onSuccess: onHitpayDropInSuccess,
+                              onError: onHitpayDropInError
+                            });
+                        }
+
+                        hitpayRedirectUrl = json['redirect_url'];
+                        hitpayPaymentId = json['payment_request_id'];
+
+                        window.HitPay.toggle({
+                            paymentRequest: json['payment_request_id'],          
+                        });
+
+                    }
+                },
+                error: function(xhr, ajaxOptions, thrownError) {
+                   console.log(thrownError + "\r\n" + xhr.statusText + "\r\n" + xhr.responseText);
+                }
+            });
+        }
+    });
+
+    function onHitpayDropInSuccess (data) {
+        var tempRedirectUrl = hitpayRedirectUrl.replace('##reference##', hitpayPaymentId);
+        tempRedirectUrl = tempRedirectUrl.replace('##status##', 'completed');
+        location.href = tempRedirectUrl;
+    }
+
+    function onHitpayDropInClose (data) {
+        /*var tempRedirectUrl = hitpayRedirectUrl.replace('##reference##', hitpayPaymentId);
+        tempRedirectUrl = tempRedirectUrl.replace('##status##', 'canceled');
+        location.href = tempRedirectUrl;*/
+    }
+
+    function onHitpayDropInError (error) {
+        var errMessage = 'Site server error while creating a payment request. Error: ' + error;
+        $('#alert').prepend('<div class="alert alert-danger alert-dismissible"><i class="fa-solid fa-circle-exclamation"></i> ' + errMessage + ' <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
+    }
+//--></script>
