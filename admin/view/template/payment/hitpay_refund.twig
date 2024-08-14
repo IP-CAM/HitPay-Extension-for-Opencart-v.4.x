@@ -95,7 +95,7 @@ $(document).ready(function() {
         var payment_id = $('#payment_id').val();
         
         $.ajax({
-		url: 'index.php?route=extension/hitpay/payment/hitpay|refund&user_token={{ user_token }}',
+		url: 'index.php?route={{ refund_action }}&user_token={{ user_token }}',
                 type: 'post',
                 data: 'order_id={{ order_id }}&payment_id='+payment_id+'&hitpay_amount='+hitpay_amount,
 		dataType: 'json',

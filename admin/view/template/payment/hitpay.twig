@@ -11,6 +11,13 @@
           <li class="breadcrumb-item"><a href="{{ breadcrumb.href }}">{{ breadcrumb.text }}</a></li>
         {% endfor %}
       </ol>
+	  
+	    {% if upgrade_required %}
+        <h3 style="float: right; position: relative;top: -8px;">
+            <a target="_blank" href="{{ upgrade_link }}" class="button btn btn-default">Upgrade</a>
+        </h3>
+		{% endif %}
+		
     </div>
   </div>
   <div class="container-fluid">
@@ -73,6 +80,32 @@
             <label class="col-sm-2 col-form-label" for="input-title"><span data-toggle="tooltip" title="{{ help_title }}">{{ entry_title }}</span></label>
             <div class="col-sm-10">
               <input type="text" name="payment_hitpay_title" value="{{ payment_hitpay_title }}" placeholder="{{ entry_title_placeholder }}" id="input-title" class="form-control" />
+            </div>
+          </div>
+		  <div class="row mb-3">
+            <label class="col-sm-2 col-form-label" for="input-mode">Checkout UI Option</label>
+            <div class="col-sm-10">
+              <select name="payment_hitpay_checkout_mode" id="input-mode" class="form-select">
+				{% if payment_hitpay_checkout_mode == 'redirect' %}
+                <option value="redirect" selected="selected">Redirect</option>
+                {% else %}
+                <option value="redirect">Redirect</option>
+                {% endif %}>
+                {% if payment_hitpay_checkout_mode == 'drop-in' %}
+                <option value="drop-in" selected="selected">Drop-In (Popup)</option>
+                {% else %}
+                <option value="drop-in">Drop-In (Popup)</option>
+                {% endif %}
+              </select>
+			  <br/>
+              <span>
+					<strong>Redirect:</strong>
+                    Navigate your user to the hitpay checkout url, and hitpay will take care of the rest of the flow.
+					<br/><br/>
+					<strong>Drop-In (Popup):</strong>
+                    The drop-in is embedded into your webpage so your customer will never have to leave your site.
+                    <br/>
+				</span>
             </div>
           </div>
           <!--div class="row mb-3">
